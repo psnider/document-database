@@ -57,10 +57,18 @@ type Fields = {}
 type Sort = {}
 
 
+// Calls return either:
+// - void: if a callback is provided
+// - a Promise: if a callback is not provided
 export interface DocumentDatabase<T> {
-    create(obj : T, done?: (error?: Error, result: T) => void) : Promise<T> | void
-    readById(id : String, done?: (error?: Error, result: {elements: T[]}) => void) : Promise<{elements: T[]}> | void
-    read(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor, done?: (error?: Error, result: {elements: T[]}) => void) : Promise<{elements: T[]}> | void
-    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument?: (doc : T) => void, , done?: (error?: Error, result: T) => void) : Promise<T> | void
-    delete(conditions : Conditions, getOriginalDocument?: (doc : T) => void, done?: (error?: Error, result: T) => void) : Promise<T> | void
+    create(obj : T) : Promise<T>
+    create(obj : T, done: (error: Error, result?: T) => void) : void
+    read(id : string) : Promise<T>
+    read(id : string, done: (error: Error, result?: T) => void) : void
+    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument?: (doc : T) => void) : Promise<T>
+    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument: (doc : T) => void, done: (error: Error, result?: T) => void) : void
+    delete(conditions : Conditions, getOriginalDocument?: (doc : T) => void) : Promise<void>
+    delete(conditions : Conditions, getOriginalDocument: (doc : T) => void, done: (error: Error) => void) : void
+    find(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor) : Promise<T[]> 
+    find(conditions : Conditions, fields: Fields, sort: Sort, cursor: Cursor, done: (error: Error, result?: T[]) => void) : void
 }
