@@ -33,7 +33,7 @@ export interface RequestQuery {
 }
 
 
-type Action = 'create' | 'read' | 'update' | 'delete' | 'find'
+type Action = 'create' | 'read' | 'update' | 'replace' | 'delete' | 'find'
 
 export interface Request<T> {
     action:         Action
@@ -54,6 +54,7 @@ export interface Response<T> {
 
 type CreateCallback<T>   = (error: Error, result?: T) => void
 type ReadCallback<T>      = (error: Error, result?: T) => void
+type ReplaceCallback<T>      = (error: Error, result?: T) => void
 type UpdateSingleCallback<T> = (error: Error, result?: T) => void
 type DeleteSingleCallback = (error?: Error) => void
 type FindCallback<T> = (error: Error, results?: T[]) => void
@@ -69,6 +70,8 @@ export abstract class DocumentDatabase<T> {
     create(obj: T, done: CreateCallback<T>): void
     read(id : string) : Promise<T>
     read(id : string, done: ReadCallback<T>) : void
+    replace(obj: T) : Promise<T>
+    replace(obj: T, done: ReplaceCallback<T>) : void
     update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument?: GetOriginalDocumentCallback<T>) : Promise<T>
     update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument: GetOriginalDocumentCallback<T>, done: UpdateSingleCallback<T>) : void
     del(conditions : Conditions, getOriginalDocument?: (doc : T) => void) : Promise<void>
