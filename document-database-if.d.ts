@@ -46,36 +46,35 @@ export interface Request<T> {
 export interface Response<T> {
     error?: any
     total_count?: number
-    elements?: T[]
+    data?: T | T[]
 }
 
 
 
-
-type CreateCallback<T>   = (error: Error, result?: T) => void
-type ReadCallback<T>      = (error: Error, result?: T) => void
-type ReplaceCallback<T>      = (error: Error, result?: T) => void
-type UpdateSingleCallback<T> = (error: Error, result?: T) => void
-type DeleteSingleCallback = (error?: Error) => void
-type FindCallback<T> = (error: Error, results?: T[]) => void
-type GetOriginalDocumentCallback<T> = (doc : T) => void
+type ErrorOnlyCallback = (error?: Error) => void
+type ObjectCallback<T>   = (error: Error, result?: T) => void
+type ArrayCallback<T> = (error: Error, results?: T[]) => void
 
 
 // Calls return either:
 // - void: if a callback is provided
 // - a Promise: if a callback is not provided
 export abstract class DocumentDatabase<T> {
-    constructor(id: string, typename: string)
+    constructor(id: string, type: string | {})
+    connect(done: ErrorOnlyCallback): void
+    connect() : Promise<void>
+    disconnect(done: ErrorOnlyCallback): void
+    disconnect() : Promise<void>
     create(obj: T): Promise<T>
-    create(obj: T, done: CreateCallback<T>): void
+    create(obj: T, done: ObjectCallback<T>): void
     read(id : string) : Promise<T>
-    read(id : string, done: ReadCallback<T>) : void
+    read(id : string, done: ObjectCallback<T>) : void
     replace(obj: T) : Promise<T>
-    replace(obj: T, done: ReplaceCallback<T>) : void
-    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument?: GetOriginalDocumentCallback<T>) : Promise<T>
-    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument: GetOriginalDocumentCallback<T>, done: UpdateSingleCallback<T>) : void
+    replace(obj: T, done: ObjectCallback<T>) : void
+    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument?: ObjectCallback<T>) : Promise<T>
+    update(conditions : Conditions, updates: UpdateFieldCommand[], getOriginalDocument: ObjectCallback<T>, done: ObjectCallback<T>) : void
     del(conditions : Conditions, getOriginalDocument?: (doc : T) => void) : Promise<void>
-    del(conditions : Conditions, getOriginalDocument: (doc : T) => void, done: DeleteSingleCallback) : void
+    del(conditions : Conditions, getOriginalDocument: (doc : T) => void, done: ErrorOnlyCallback) : void
     find(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor) : Promise<T[]> 
-    find(conditions : Conditions, fields: Fields, sort: Sort, cursor: Cursor, done: FindCallback<T>) : void
+    find(conditions : Conditions, fields: Fields, sort: Sort, cursor: Cursor, done: ArrayCallback<T>) : void
 }
