@@ -1,20 +1,19 @@
 {
   "name": "document-database-if",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Interface to a generic document (no-SQL) database.",
   "keywords": [],
   "private": false,
-  "scripts": {
-  },
+  "scripts": {},
   "author": {
-    "name" : "Peter Snider",
-    "email" : "snider.peter@gmail.com"
+    "name": "Peter Snider",
+    "email": "snider.peter@gmail.com"
   },
   "license": "MIT",
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
-    "typescript": "^2.0.2"
+    "typescript": "^2.0.2",
+    "typings": "^1.4.0"
   },
   "repository": {
     "type": "git",

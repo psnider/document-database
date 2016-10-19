@@ -1,6 +1,4 @@
-type Promise<T> = any
-
-type DatabaseID = string
+type DocumentID = string
 
 export interface Cursor {
     start_offset?:  number
@@ -28,7 +26,7 @@ type Sort = {[fieldname: string]: number}
 export interface RequestQuery {
     // ids: use this for any queries that do not involve other fields.
     // Required for read, delete
-    ids?:           DatabaseID[]
+    ids?:           DocumentID[]
     // Used only by update, find
     conditions?:    Conditions
     fields?:        Fields
@@ -39,10 +37,10 @@ export interface RequestQuery {
 
 type Action = 'create' | 'read' | 'update' | 'replace' | 'delete' | 'find'
 
-export interface Request<T> {
+export interface Request<DocumentType> {
     action:         Action
     // obj: used only by create and replace
-    obj?:           T
+    obj?:           DocumentType
     // query: used for all but create and replace
     query?:         RequestQuery
     // updates: used by update only
@@ -50,39 +48,39 @@ export interface Request<T> {
 }
 
 
-export interface Response<T> {
+export interface Response<DocumentType> {
     error?: any
     total_count?: number
-    data?: T | T[]
+    data?: DocumentType | DocumentType[]
 }
 
 
 
 type ErrorOnlyCallback = (error?: Error) => void
-type ObjectCallback<T>   = (error: Error, result?: T) => void
-type ArrayCallback<T> = (error: Error, results?: T[]) => void
-type ObjectOrArrayCallback<T> = (error: Error, results?: T | T[]) => void
+type ObjectCallback<DocumentType>   = (error: Error, result?: DocumentType) => void
+type ArrayCallback<DocumentType> = (error: Error, results?: DocumentType[]) => void
+type ObjectOrArrayCallback<DocumentType> = (error: Error, results?: DocumentType | DocumentType[]) => void
 
 
 // Calls return either:
 // - void: if a callback is provided
 // - a Promise: if a callback is not provided
-export abstract class DocumentDatabase<T> {
+export abstract class DocumentDatabase<DocumentType extends {_id?: DocumentID}> {
     constructor(db_name: string, type: string | {})
     connect(done: ErrorOnlyCallback): void
     connect() : Promise<void>
     disconnect(done: ErrorOnlyCallback): void
     disconnect() : Promise<void>
-    create(obj: T): Promise<T>
-    create(obj: T, done: ObjectCallback<T>): void
-    read(_id_or_ids: DatabaseID | DatabaseID[]) : Promise<T | T[]> 
-    read(_id_or_ids: DatabaseID | DatabaseID[], done: ObjectOrArrayCallback<T>) : void
-    replace(obj: T) : Promise<T>
-    replace(obj: T, done: ObjectCallback<T>) : void
-    update(conditions : Conditions, updates: UpdateFieldCommand[]) : Promise<T>
-    update(conditions : Conditions, updates: UpdateFieldCommand[], done: ObjectCallback<T>) : void
-    del(_id: DatabaseID) : Promise<void>
-    del(_id: DatabaseID, done: ErrorOnlyCallback) : void
-    find(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor) : Promise<T[]> 
-    find(conditions : Conditions, fields: Fields, sort: Sort, cursor: Cursor, done: ArrayCallback<T>) : void
+    create(obj: DocumentType): Promise<DocumentType>
+    create(obj: DocumentType, done: ObjectCallback<DocumentType>): void
+    read(_id_or_ids: DocumentID | DocumentID[]) : Promise<DocumentType | DocumentType[]> 
+    read(_id_or_ids: DocumentID | DocumentID[], done: ObjectOrArrayCallback<DocumentType>) : void
+    replace(obj: DocumentType) : Promise<DocumentType>
+    replace(obj: DocumentType, done: ObjectCallback<DocumentType>) : void
+    update(conditions : Conditions, updates: UpdateFieldCommand[]) : Promise<DocumentType>
+    update(conditions : Conditions, updates: UpdateFieldCommand[], done: ObjectCallback<DocumentType>) : void
+    del(_id: DocumentID) : Promise<void>
+    del(_id: DocumentID, done: ErrorOnlyCallback) : void
+    find(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor) : Promise<DocumentType[]> 
+    find(conditions : Conditions, fields: Fields, sort: Sort, cursor: Cursor, done: ArrayCallback<DocumentType>) : void
 }
