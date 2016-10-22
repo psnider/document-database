@@ -22,6 +22,11 @@ type Fields = string[]
 type Sort = {[fieldname: string]: number}
 
 
+// Every document must implement this.
+export interface DocumentBase {
+    _id?: DocumentID
+}
+
 
 export interface RequestQuery {
     // ids: use this for any queries that do not involve other fields.
@@ -37,7 +42,7 @@ export interface RequestQuery {
 
 type Action = 'create' | 'read' | 'update' | 'replace' | 'delete' | 'find'
 
-export interface Request<DocumentType> {
+export interface Request<DocumentType extends DocumentBase> {
     action:         Action
     // obj: used only by create and replace
     obj?:           DocumentType
@@ -48,12 +53,11 @@ export interface Request<DocumentType> {
 }
 
 
-export interface Response<DocumentType> {
+export interface Response<DocumentType extends DocumentBase> {
     error?: any
     total_count?: number
     data?: DocumentType | DocumentType[]
 }
-
 
 
 type ErrorOnlyCallback = (error?: Error) => void
@@ -65,7 +69,7 @@ type ObjectOrArrayCallback<DocumentType> = (error: Error, results?: DocumentType
 // Calls return either:
 // - void: if a callback is provided
 // - a Promise: if a callback is not provided
-export abstract class DocumentDatabase<DocumentType extends {_id?: DocumentID}> {
+export abstract class DocumentDatabase<DocumentType extends DocumentBase> {
     constructor(db_name: string, type: string | {})
     connect(done: ErrorOnlyCallback): void
     connect() : Promise<void>
