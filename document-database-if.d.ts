@@ -88,3 +88,27 @@ export abstract class DocumentDatabase<DocumentType extends DocumentBase> {
     find(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor) : Promise<DocumentType[]> 
     find(conditions : Conditions, fields: Fields, sort: Sort, cursor: Cursor, done: ArrayCallback<DocumentType>) : void
 }
+
+
+// set each property true if it is fully supported
+export interface SupportedFeatures {
+    // create must always be supported
+    // read must always be supported
+    // del must always be supported
+    replace: boolean
+    update: {
+        object: {
+            set: boolean 
+            unset: boolean
+        }
+        array: {
+            set: boolean 
+            unset: boolean
+            insert: boolean
+            remove: boolean
+        }
+    }
+    find: {
+        all: boolean
+    }
+}
