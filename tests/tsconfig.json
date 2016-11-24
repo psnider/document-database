@@ -1,12 +1,16 @@
 {
     "version": "2.0.0",
     "compilerOptions": {
-        "target": "es5",
+        "target": "es6",
         "module": "commonjs",
         "declaration": false,
         "noImplicitAny": false,
         "removeComments": false,
-        "noLib": false
+        "noLib": false,
+        "types" : ["chai", "mocha"]
+    },
+    "scripts": {
+        "postbuild": "echo after building"
     },
     "formatCodeOptions": {
         "indentSize": 4,
@@ -23,11 +27,7 @@
         "placeOpenBraceOnNewLineForControlBlocks": false
     },
     "files": [
-        "document-database-if.d.ts",
-        "typings/index.d.ts"
+        "document-database-tests.ts"
     ],
-    "exclude": [],
-    "atom": {
-        "rewriteTsconfig": true
-    }
+    "exclude": []
 }

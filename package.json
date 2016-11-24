@@ -1,10 +1,14 @@
 {
-  "name": "document-database-if",
-  "version": "0.1.0",
+  "name": "@sabbatical/document-database",
+  "version": "0.2.0",
   "description": "Interface to a generic document (no-SQL) database.",
   "keywords": [],
   "private": false,
-  "scripts": {},
+  "scripts": {
+    "clean": "rm -f tests/*.js",
+    "build": "npm run build-tests",
+    "build-tests": "tsc -p tests"
+  },
   "author": {
     "name": "Peter Snider",
     "email": "snider.peter@gmail.com"
@@ -12,12 +16,15 @@
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
-    "typescript": "2.0.6",
-    "typings": "1.5.0"
+    "@types/chai": "3.4.34",
+    "@types/mocha": "2.2.33",
+    "chai": "3.5.0",
+    "mocha": "3.1.2",
+    "typescript": "2.0.10"
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:psnider/document-database-if.git"
+    "url": "git@github.com:psnider/document-database.git"
   },
-  "typings": "./document-database-if.d.ts"
+  "typings": "./document-database.d.ts"
 }

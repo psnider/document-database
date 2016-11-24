@@ -1,0 +1,13 @@
+{
+  "name": "@psnider/document-database/tests",
+  "version": "0.2.0",
+  "description": "Tests for the document-database interface",
+  "author": {
+    "name": "Peter Snider",
+    "email": "snider.peter@gmail.com"
+  },
+  "private": false,
+  "license": "MIT",
+  "main": "./document-database-tests.js",
+  "typings": "./document-database-tests.d.ts"
+}
