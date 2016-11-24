@@ -1,6 +1,6 @@
 {
   "name": "@sabbatical/document-database",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Interface to a generic document (no-SQL) database.",
   "keywords": [],
   "private": false,
