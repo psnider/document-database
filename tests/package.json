@@ -1,5 +1,5 @@
 {
-  "name": "@psnider/document-database/tests",
+  "name": "@sabbatical/document-database/tests",
   "version": "0.2.0",
   "description": "Tests for the document-database interface",
   "author": {
