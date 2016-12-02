@@ -4,8 +4,9 @@
         "target": "es6",
         "module": "commonjs",
         "declaration": false,
-        "noImplicitAny": false,
         "removeComments": false,
+        "noImplicitAny": true,
+        "suppressImplicitAnyIndexErrors": true,
         "noLib": false
     },
     "scripts": {

@@ -1,7 +1,7 @@
 
 // considers null, empty array, and obj._id to all be undefined
-export function deepEqualObjOrMarshalledObj(lhs, rhs) : boolean {
-    function coerceType(value) {
+export function deepEqualObjOrMarshalledObj(lhs: {}, rhs: {}) : boolean {
+    function coerceType(value: any) {
         if (typeof value === 'null') return undefined
         if (Array.isArray(value) && (value.length === 0)) return undefined
         return value

@@ -113,4 +113,4 @@ export interface SupportedFeatures {
 }
 
 
-export function deepEqualObjOrMarshalledObj(lhs, rhs): boolean
+export function deepEqualObjOrMarshalledObj(lhs: {}, rhs: {}): boolean
