@@ -1,7 +1,7 @@
 import chai                             = require('chai')
 var expect                              = chai.expect
 
-import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand, Cursor} from '../document-database'
+import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand, Cursor} from '../document-database.d'
 import {UnsupportedUpdateArrayCmds, UnsupportedUpdateObjectCmds, UpdateConfiguration} from './document-database-tests.d'
 
 

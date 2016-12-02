@@ -1,13 +1,17 @@
 {
   "name": "@sabbatical/document-database",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Interface to a generic document (no-SQL) database.",
+  "main": "document-database.js",
   "keywords": [],
   "private": false,
   "scripts": {
     "clean": "rm -f tests/*.js",
-    "build": "npm run build-tests",
-    "build-tests": "tsc -p tests"
+    "build": "npm run build-lib && npm run build-tests-module",
+    "build-lib": "bin/build-and-install-in-node_modules.sh",
+    "build-tests-module": "tsc -p tests",
+    "test-only": "mocha -R spec document-database.tests.js",
+    "test": "npm run build && npm run test-only"
   },
   "author": {
     "name": "Peter Snider",

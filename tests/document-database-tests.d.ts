@@ -1,4 +1,4 @@
-import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand} from '../document-database'
+import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand} from '../document-database.d'
 
 
 
