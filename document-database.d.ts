@@ -27,38 +27,6 @@ type Fields = string[]
 type Sort = {[fieldname: string]: number}
 
 
-export interface RequestQuery {
-    // ids: use this for any queries that do not involve other fields.
-    // Required for read, delete
-    ids?:           DocumentID[]
-    // Used only by update, find
-    conditions?:    Conditions
-    fields?:        Fields
-    sort?:          Sort
-    cursor?:        Cursor
-}
-
-
-type Action = 'create' | 'read' | 'update' | 'replace' | 'delete' | 'find'
-
-export interface Request {
-    action:         Action
-    // obj: used only by create and replace
-    obj?:           DocumentType
-    // query: used for all but create and replace
-    query?:         RequestQuery
-    // updates: used by update only
-    updates?:       UpdateFieldCommand[]
-}
-
-
-export interface Response {
-    error?: any
-    total_count?: number
-    data?: DocumentType | DocumentType[]
-}
-
-
 type ErrorOnlyCallback = (error?: Error) => void
 type ObjectCallback  = (error: Error, result?: DocumentType) => void
 type ArrayCallback = (error: Error, results?: DocumentType[]) => void
