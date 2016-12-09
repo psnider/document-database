@@ -72,34 +72,96 @@ function test_create(getDB, createNewObject, config) {
 exports.test_create = test_create;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
 function test_read(getDB, createNewObject, config) {
-    it('+ should read a previously created object', function () {
-        var db = getDB();
-        var obj = createNewObject();
-        return db.create(obj).then((created_obj) => {
-            return db.read(created_obj._id).then((read_obj) => {
-                expect(read_obj).to.not.be.eql(obj);
-                config.forEach((fieldname) => {
-                    expect(created_obj[fieldname]).to.equal(obj[fieldname]);
+    describe('read an object specified by a single string ID', function () {
+        it('+ should read a previously created object', function () {
+            var db = getDB();
+            var obj = createNewObject();
+            return db.create(obj).then((created_obj) => {
+                return db.read(created_obj._id).then((read_obj) => {
+                    expect(read_obj).to.not.be.eql(obj);
+                    config.forEach((fieldname) => {
+                        expect(created_obj[fieldname]).to.equal(obj[fieldname]);
+                    });
                 });
             });
         });
-    });
-    it('+ should return no result for a non-existant object', function () {
-        var db = getDB();
-        return db.read('ffffffffffffffffffffffff').then((result) => {
-            expect(result).to.not.exist;
-        }, (error) => {
-            console.log('ERROR: read of valid format _id, but not referenceing an object should not return error');
-            throw error;
+        it('+ should return no result for a non-existant object', function () {
+            var db = getDB();
+            return db.read('ffffffffffffffffffffffff').then((result) => {
+                expect(result).to.not.exist;
+            }, (error) => {
+                console.log('ERROR: read of valid format _id, but not referenceing an object should not return error');
+                throw error;
+            });
+        });
+        it('should return an error when the request is missing the _id', function () {
+            var db = getDB();
+            return db.read(undefined).then((result) => {
+                throw new Error('read of invalid _id should return error');
+            }, (error) => {
+                expect(error.message).to.equal('_id_or_ids is invalid');
+                return 'ok';
+            });
         });
     });
-    it('should return an error when the request is missing the _id', function () {
-        var db = getDB();
-        return db.read(undefined).then((result) => {
-            throw new Error('read of invalid _id should return error');
-        }, (error) => {
-            expect(error.message).to.equal('_id is invalid');
-            return 'ok';
+    describe('read an array of objects specified by an array of string IDs', function () {
+        it('+ should read a set of previously created objects', function () {
+            var db = getDB();
+            const OBJ_COUNT = 2;
+            let promises = [];
+            for (let i = 0; i < OBJ_COUNT; ++i) {
+                let obj = createNewObject();
+                promises.push(db.create(obj));
+            }
+            return Promise.all(promises).then((created_objs) => {
+                var _ids = created_objs.map((created_obj) => { return created_obj._id; });
+                return db.read(_ids).then((read_objs) => {
+                    for (let i = 0; i < OBJ_COUNT; ++i) {
+                        let created_obj = created_objs[i];
+                        let read_obj = read_objs[i];
+                        expect(read_obj).to.deep.equal(created_obj);
+                        expect(read_obj).to.not.be.equal(created_obj);
+                        config.forEach((fieldname) => {
+                            expect(read_obj[fieldname]).to.equal(created_obj[fieldname]);
+                        });
+                    }
+                });
+            });
+        });
+        it('+ should not add anything to the results for an ID that doesnt reference a document', function () {
+            var db = getDB();
+            const OBJ_COUNT = 2;
+            let promises = [];
+            for (let i = 0; i < OBJ_COUNT; ++i) {
+                let obj = createNewObject();
+                promises.push(db.create(obj));
+            }
+            return Promise.all(promises).then((created_objs) => {
+                var _ids = created_objs.map((created_obj) => { return created_obj._id; });
+                // insert an invalid ID in the middle
+                _ids.splice(1, 0, '123456789012345678901234');
+                expect(_ids).to.have.lengthOf(OBJ_COUNT + 1);
+                return db.read(_ids).then((read_objs) => {
+                    expect(read_objs).to.have.lengthOf(OBJ_COUNT);
+                    for (let i = 0; i < OBJ_COUNT; ++i) {
+                        let created_obj = created_objs[i];
+                        let read_obj = read_objs[i];
+                        expect(read_obj).to.deep.equal(created_obj);
+                        expect(read_obj).to.not.be.equal(created_obj);
+                        config.forEach((fieldname) => {
+                            expect(read_obj[fieldname]).to.equal(created_obj[fieldname]);
+                        });
+                    }
+                });
+            });
+        });
+        it('+ should return an empty array if none of the IDs reference a document', function () {
+            var db = getDB();
+            let _ids = ['123456789012345678901234', '123456789012345678901235'];
+            return db.read(_ids).then((read_objs) => {
+                expect(read_objs).to.be.an('array');
+                expect(read_objs).to.have.lengthOf(0);
+            });
         });
     });
 }

@@ -1,4 +1,4 @@
-type DocumentID = string
+export type DocumentID = string
 // Every document must implement this.
 export interface DocumentBase {
     _id?: DocumentID
@@ -21,16 +21,16 @@ export interface UpdateFieldCommand {
 }
 
 
-type Conditions = {}
-type Fields = string[]
+export type Conditions = {}
+export type Fields = string[]
 // specify the field on which to sort, with a value of 1 meaning ascending, and -1 meaning descending
-type Sort = {[fieldname: string]: number}
+export type Sort = {[fieldname: string]: number}
 
 
-type ErrorOnlyCallback = (error?: Error) => void
-type ObjectCallback  = (error: Error, result?: DocumentType) => void
-type ArrayCallback = (error: Error, results?: DocumentType[]) => void
-type ObjectOrArrayCallback = (error: Error, results?: DocumentType | DocumentType[]) => void
+export type ErrorOnlyCallback = (error?: Error) => void
+export type ObjectCallback  = (error: Error, result?: DocumentType) => void
+export type ArrayCallback = (error: Error, results?: DocumentType[]) => void
+export type ObjectOrArrayCallback = (error: Error, results?: DocumentType | DocumentType[]) => void
 
 
 // Calls return either:
@@ -44,9 +44,17 @@ export abstract class DocumentDatabase {
     disconnect() : Promise<void>
     create(obj: DocumentType): Promise<DocumentType>
     create(obj: DocumentType, done: ObjectCallback): void
-    read(_id_or_ids: DocumentID | DocumentID[]) : Promise<DocumentType | DocumentType[]> 
-    read(_id_or_ids: DocumentID | DocumentID[], done: ObjectOrArrayCallback) : void
+    // if the document doesn't exist, it returns null/undefined
+    read(_id: DocumentID) : Promise<DocumentType> 
+    read(_id: DocumentID, done: ObjectCallback) : void
+    // if a document doesn't exist, nothing is added to the result set for that ID
+    // if no documents are found, an empty array is returned
+    // if the caller is interested in invalid IDs, then it must track the difference between the input _ids and the results itself
+    read(_ids: DocumentID[]) : Promise<DocumentType[]> 
+    read(_ids: DocumentID[], done: ArrayCallback) : void
+    // @deprecated
     replace(obj: DocumentType) : Promise<DocumentType>
+    // @deprecated
     replace(obj: DocumentType, done: ObjectCallback) : void
     update(conditions : Conditions, updates: UpdateFieldCommand[]) : Promise<DocumentType>
     update(conditions : Conditions, updates: UpdateFieldCommand[], done: ObjectCallback) : void
