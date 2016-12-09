@@ -47,6 +47,7 @@ export abstract class DocumentDatabase {
     // if the document doesn't exist, it returns null/undefined
     read(_id: DocumentID) : Promise<DocumentType> 
     read(_id: DocumentID, done: ObjectCallback) : void
+    // The returned documents may be in any order (.and not in the order of the input IDs)
     // if a document doesn't exist, nothing is added to the result set for that ID
     // if no documents are found, an empty array is returned
     // if the caller is interested in invalid IDs, then it must track the difference between the input _ids and the results itself

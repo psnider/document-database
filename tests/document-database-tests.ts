@@ -167,7 +167,7 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
                 return db.read(_ids).then((read_objs: DocumentType[]) => {
                     for (let i = 0 ; i < OBJ_COUNT ; ++i) {
                         let created_obj = created_objs[i]
-                        let read_obj = read_objs[i]
+                        let read_obj = read_objs.find((obj) => {return obj._id === created_obj._id})
                         expect(read_obj).to.deep.equal(created_obj)
                         expect(read_obj).to.not.be.equal(created_obj)
                         config.forEach((fieldname) => {
@@ -196,7 +196,7 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
                     expect(read_objs).to.have.lengthOf(OBJ_COUNT)
                     for (let i = 0 ; i < OBJ_COUNT ; ++i) {
                         let created_obj = created_objs[i]
-                        let read_obj = read_objs[i]
+                        let read_obj = read_objs.find((obj) => {return obj._id === created_obj._id})
                         expect(read_obj).to.deep.equal(created_obj)
                         expect(read_obj).to.not.be.equal(created_obj)
                         config.forEach((fieldname) => {
