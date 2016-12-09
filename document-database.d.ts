@@ -11,8 +11,11 @@ export interface Cursor {
 }
 
 
+export type UpdateFieldCommandType = 'set' | 'unset' | 'insert' | 'remove'
+
+
 export interface UpdateFieldCommand {
-    cmd:            string     // set, unset, and for arrays: insert, remove
+    cmd:            UpdateFieldCommandType
     field:          string
     key_field?:     string     // The field that contains the unique key of an array element
     element_id?:    any        // The unique key of an array element, required for selecting an array element
@@ -21,7 +24,7 @@ export interface UpdateFieldCommand {
 }
 
 
-export type Conditions = {}
+export type Conditions = any
 export type Fields = string[]
 // specify the field on which to sort, with a value of 1 meaning ascending, and -1 meaning descending
 export type Sort = {[fieldname: string]: number}
