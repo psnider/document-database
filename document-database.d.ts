@@ -56,9 +56,7 @@ export abstract class DocumentDatabase {
     // if the caller is interested in invalid IDs, then it must track the difference between the input _ids and the results itself
     read(_ids: DocumentID[]) : Promise<DocumentType[]> 
     read(_ids: DocumentID[], done: ArrayCallback) : void
-    // @deprecated
     replace(obj: DocumentType) : Promise<DocumentType>
-    // @deprecated
     replace(obj: DocumentType, done: ObjectCallback) : void
     update(conditions : Conditions, updates: UpdateFieldCommand[]) : Promise<DocumentType>
     update(conditions : Conditions, updates: UpdateFieldCommand[], done: ObjectCallback) : void
