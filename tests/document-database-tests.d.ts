@@ -1,4 +1,4 @@
-import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand} from '../document-database.d'
+import {DocumentDatabase, DocumentBase, DocumentID, SupportedFeatures, UpdateFieldCommand} from '../document-database.d'
 
 
 
@@ -13,6 +13,8 @@ export interface FieldsUsedInTests {
     populated_string?: string
     // must refer to a top-level field that is a string, and is not present
     unpopulated_string?: string
+    // must refer to a top-level field that is a string, and is not preseis always unique
+    unique_key_fieldname?: string
     string_array?: {
         name: string
     }
@@ -25,33 +27,10 @@ export interface FieldsUsedInTests {
     }
 }
 
-export interface UnsupportedUpdateObjectCmds {
-    set: boolean 
-    unset: boolean
-}
 
-export interface UnsupportedUpdateArrayCmds {
-    set: boolean 
-    unset: boolean
-    insert: boolean
-    remove: boolean
-}
-
-export interface UnsupportedUpdateCmds {
-    object?: UnsupportedUpdateObjectCmds
-    array?: UnsupportedUpdateArrayCmds
-}
-
-export interface UpdateConfiguration {
-    // controls which tests are skipped due to the object type not having the data type required by a test
-    test: FieldsUsedInTests,
-    // controls which tests are skipped due to missing support
-    unsupported?: UnsupportedUpdateCmds
-}
-
-export function test_create<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, fieldnames: string[]): void
-export function test_read<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, fieldnames: string[]): void
-export function test_replace<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, fieldnames: string[]): void
-export function test_update<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, config: UpdateConfiguration): void
-export function test_del<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, fieldnames: string[]): void
-export function test_find<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, unique_key_fieldname: string): void
+export function test_create<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests): void
+export function test_read<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests): void
+export function test_replace<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests, config: SupportedFeatures): void
+export function test_update<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests, config: SupportedFeatures): void
+export function test_del<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests): void
+export function test_find<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests, config: SupportedFeatures): void

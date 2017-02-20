@@ -38,16 +38,14 @@ function expectDBOjectToContainAllObjectFields(db_obj, obj) {
     }
 }
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-function test_create(getDB, createNewObject, config) {
+function test_create(getDB, createNewObject, test_fields) {
     it('+ should create a new object', function () {
         var db = getDB();
         var obj = createNewObject();
         return db.create(obj).then((created_obj) => {
             expect(created_obj).to.not.be.eql(obj);
             expect(created_obj._id).to.exist;
-            config.forEach((fieldname) => {
-                expect(created_obj[fieldname]).to.equal(obj[fieldname]);
-            });
+            expect(created_obj[test_fields.populated_string]).to.equal(obj[test_fields.populated_string]);
         });
     });
     it('+ should not modify the original object', function () {
@@ -78,7 +76,7 @@ function test_create(getDB, createNewObject, config) {
 }
 exports.test_create = test_create;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-function test_read(getDB, createNewObject, config) {
+function test_read(getDB, createNewObject, test_fields) {
     describe('read an object specified by a single string ID', function () {
         it('+ should read a previously created object', function () {
             var db = getDB();
@@ -86,9 +84,7 @@ function test_read(getDB, createNewObject, config) {
             return db.create(obj).then((created_obj) => {
                 return db.read(created_obj._id).then((read_obj) => {
                     expect(read_obj).to.not.be.eql(obj);
-                    config.forEach((fieldname) => {
-                        expect(created_obj[fieldname]).to.equal(obj[fieldname]);
-                    });
+                    expect(created_obj[test_fields.populated_string]).to.equal(obj[test_fields.populated_string]);
                 });
             });
         });
@@ -127,10 +123,8 @@ function test_read(getDB, createNewObject, config) {
                         let created_obj = created_objs[i];
                         let read_obj = read_objs.find((obj) => { return obj._id === created_obj._id; });
                         expect(read_obj).to.deep.equal(created_obj);
-                        expect(read_obj).to.not.be.equal(created_obj);
-                        config.forEach((fieldname) => {
-                            expect(read_obj[fieldname]).to.equal(created_obj[fieldname]);
-                        });
+                        expect(read_obj).to.not.equal(created_obj);
+                        expect(read_obj[test_fields.populated_string]).to.equal(created_obj[test_fields.populated_string]);
                     }
                 });
             });
@@ -155,9 +149,7 @@ function test_read(getDB, createNewObject, config) {
                         let read_obj = read_objs.find((obj) => { return obj._id === created_obj._id; });
                         expect(read_obj).to.deep.equal(created_obj);
                         expect(read_obj).to.not.be.equal(created_obj);
-                        config.forEach((fieldname) => {
-                            expect(read_obj[fieldname]).to.equal(created_obj[fieldname]);
-                        });
+                        expect(read_obj[test_fields.populated_string]).to.equal(created_obj[test_fields.populated_string]);
                     }
                 });
             });
@@ -174,48 +166,46 @@ function test_read(getDB, createNewObject, config) {
 }
 exports.test_read = test_read;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-function test_replace(getDB, createNewObject, config) {
+function test_replace(getDB, createNewObject, test_fields, supported) {
     function replace() {
         var db = getDB();
         var original_obj = createNewObject();
         return db.create(original_obj).then((created_obj) => {
-            expect(config.length).to.be.at.least(1);
-            config.forEach((fieldname) => {
-                created_obj[fieldname] = created_obj[fieldname] + 1;
-            });
-            return db.replace(created_obj).then((replaced_obj) => {
-                expect(replaced_obj).to.not.equal(created_obj);
-                return { original_obj, created_obj, replaced_obj };
+            let updated_obj = Object.assign({}, created_obj);
+            updated_obj[test_fields.populated_string] = created_obj[test_fields.populated_string] + 1;
+            return db.replace(updated_obj).then((replaced_obj) => {
+                expect(replaced_obj).to.not.equal(updated_obj);
+                expect(replaced_obj[test_fields.populated_string]).to.equal(updated_obj[test_fields.populated_string]);
+                return { created_obj, updated_obj, replaced_obj };
             });
         });
     }
+    let _it = testOrSkip({ requires: [supported.replace] });
     it('+ should replace an existing object', function () {
         return replace().then((objs) => {
-            let original_obj = objs.original_obj;
             let created_obj = objs.created_obj;
+            let updated_obj = objs.updated_obj;
             let replaced_obj = objs.replaced_obj;
-            config.forEach((fieldname) => {
-                expect(replaced_obj[fieldname]).to.equal(created_obj[fieldname]);
-                expect(replaced_obj[fieldname]).to.not.equal(original_obj[fieldname]);
-            });
+            expect(replaced_obj[test_fields.populated_string]).to.equal(updated_obj[test_fields.populated_string]);
+            expect(replaced_obj[test_fields.populated_string]).to.not.equal(created_obj[test_fields.populated_string]);
         });
     });
+    _it = testOrSkip({ requires: [supported.replace] });
     it('+ should update the object version', function () {
         return replace().then((objs) => {
             let created_obj = objs.created_obj;
+            let updated_obj = objs.updated_obj;
             let replaced_obj = objs.replaced_obj;
-            config.forEach((fieldname) => {
-                expect(created_obj._obj_ver).to.equal(1);
-                expect(replaced_obj._obj_ver).to.equal(2);
-            });
+            expect(created_obj._obj_ver).to.equal(1);
+            expect(replaced_obj._obj_ver).to.equal(2);
         });
     });
 }
 exports.test_replace = test_replace;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-function test_update(getDB, createNewObject, config) {
-    let unsupported_array = (config.unsupported && config.unsupported.array) || { set: false, unset: false, insert: false, remove: false };
-    let unsupported_object = (config.unsupported && config.unsupported.object) || { set: false, unset: false };
+function test_update(getDB, createNewObject, test_fields, supported) {
+    let supported_array = supported.update.array;
+    let supported_object = supported.update.object;
     function test_update(obj, update_cmd) {
         var db = getDB();
         return db.create(obj).then((created_obj) => {
@@ -230,10 +220,10 @@ function test_update(getDB, createNewObject, config) {
     describe('if selected item has a path without an array:', function () {
         describe('cmd=set:', function () {
             let cmd = 'set';
-            let _it = testOrSkip({ requires: [!!config.test.populated_string], skip_if: [unsupported_object[cmd]] });
+            let _it = testOrSkip({ requires: [(test_fields.populated_string != null), supported_object[cmd]], skip_if: [] });
             _it('+ should replace an existing field in an object', function () {
                 var obj = createNewObject();
-                var populated_string = config.test.populated_string;
+                var populated_string = test_fields.populated_string;
                 expect(obj[populated_string]).to.exist;
                 var replacement_value = obj[populated_string] + 1;
                 var UPDATE_CMD = { cmd, field: populated_string, value: replacement_value };
@@ -241,10 +231,10 @@ function test_update(getDB, createNewObject, config) {
                     expect(objs.updated_obj[populated_string]).to.equal(replacement_value);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.unpopulated_string != null), supported_object[cmd]], skip_if: [] });
             _it('+ should create a non-existant field in an object', function () {
                 var obj = createNewObject();
-                var unpopulated_string = config.test.unpopulated_string;
+                var unpopulated_string = test_fields.unpopulated_string;
                 expect(obj[unpopulated_string]).to.not.exist;
                 var value = 'abc';
                 var UPDATE_CMD = { cmd, field: unpopulated_string, value };
@@ -252,10 +242,10 @@ function test_update(getDB, createNewObject, config) {
                     expect(objs.updated_obj[unpopulated_string]).to.equal(value);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.unpopulated_string != null), supported_object[cmd]], skip_if: [] });
             _it('+ should update the object version', function () {
                 var obj = createNewObject();
-                var unpopulated_string = config.test.unpopulated_string;
+                var unpopulated_string = test_fields.unpopulated_string;
                 expect(obj[unpopulated_string]).to.not.exist;
                 var value = 'abc';
                 var UPDATE_CMD = { cmd, field: unpopulated_string, value };
@@ -267,10 +257,10 @@ function test_update(getDB, createNewObject, config) {
         });
         describe('cmd=unset', function () {
             let cmd = 'unset';
-            let _it = testOrSkip({ requires: [!!config.test.populated_string], skip_if: [unsupported_object[cmd]] });
+            let _it = testOrSkip({ requires: [(test_fields.populated_string != null), supported_object[cmd]], skip_if: [] });
             _it('+ should remove an existing field in an object', function () {
                 var obj = createNewObject();
-                var populated_string = config.test.populated_string;
+                var populated_string = test_fields.populated_string;
                 var UPDATE_CMD = { cmd, field: populated_string };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     expect(objs.updated_obj[populated_string]).to.be.undefined;
@@ -281,9 +271,9 @@ function test_update(getDB, createNewObject, config) {
     describe('if selected item has a path with an array', function () {
         describe('cmd=set', function () {
             let cmd = 'set';
-            let _it = testOrSkip({ requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]] });
+            let _it = testOrSkip({ requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: [] });
             _it('+ should replace an existing element in an array of simple types', function () {
-                var string_array = config.test.string_array;
+                var string_array = test_fields.string_array;
                 var obj = createNewObject();
                 const original_value = obj[string_array.name][0];
                 const updated_value = original_value + 1;
@@ -295,9 +285,9 @@ function test_update(getDB, createNewObject, config) {
                     expect(objs.updated_obj[string_array.name][0]).to.equal(updated_value);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: [] });
             _it('+ should replace an existing element in an array of objects', function () {
-                var obj_array = config.test.obj_array;
+                var obj_array = test_fields.obj_array;
                 var obj = createNewObject();
                 var original_first_element = obj[obj_array.name][0];
                 var original_element_id = original_first_element[obj_array.key_field];
@@ -312,39 +302,37 @@ function test_update(getDB, createNewObject, config) {
                     expect(updated_first_element).to.deep.equal(REPLACED_ELEMENT);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.unpopulated_field], skip_if: [unsupported_array.set] });
+            _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.unpopulated_field != null), supported_array[cmd]], skip_if: [] });
             _it('+ should create a new field in an existing element in an array of objects', function () {
-                var obj_array = config.test.obj_array;
-                var unpopulated_field = obj_array.unpopulated_field;
+                var unpopulated_field = test_fields.obj_array.unpopulated_field;
                 var obj = createNewObject();
-                var original_first_element = obj[obj_array.name][0];
-                var original_element_id = original_first_element[obj_array.key_field];
-                var path = `${obj_array.name}.${obj_array.key_field}`;
+                var original_first_element = obj[test_fields.obj_array.name][0];
+                var original_element_id = original_first_element[test_fields.obj_array.key_field];
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var conditions = {};
                 conditions[path] = original_element_id;
                 var value = getRandomValue(unpopulated_field.type);
-                var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value };
+                var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var updated_first_element = objs.updated_obj[obj_array.name][0];
+                    var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0];
                     var updated_value = getValue(updated_first_element, unpopulated_field.name);
                     expect(updated_value).to.equal(value);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: [] });
             _it('+ should replace an existing field in an existing element in an array of objects', function () {
-                var obj_array = config.test.obj_array;
-                var populated_field = config.test.obj_array.populated_field;
+                var populated_field = test_fields.obj_array.populated_field;
                 var obj = createNewObject();
-                var original_first_element = obj[obj_array.name][0];
-                var original_element_id = original_first_element[obj_array.key_field];
-                var path = `${obj_array.name}.${obj_array.key_field}`;
+                var original_first_element = obj[test_fields.obj_array.name][0];
+                var original_element_id = original_first_element[test_fields.obj_array.key_field];
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var conditions = {};
                 conditions[path] = original_element_id;
                 var replacement_obj = createNewObject();
-                var value = getValue(replacement_obj[obj_array.name][0], populated_field.name);
-                var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value };
+                var value = getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name);
+                var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var updated_first_element = objs.updated_obj[obj_array.name][0];
+                    var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0];
                     var updated_value = getValue(updated_first_element, populated_field.name);
                     expect(updated_value).to.equal(value);
                 });
@@ -352,34 +340,32 @@ function test_update(getDB, createNewObject, config) {
         });
         describe('cmd=unset ', function () {
             let cmd = 'unset';
-            let _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
+            let _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: [] });
             _it('+ should remove an existing field from an existing element in the array', function () {
-                var obj_array = config.test.obj_array;
-                var populated_field = config.test.obj_array.populated_field;
+                var populated_field = test_fields.obj_array.populated_field;
                 var obj = createNewObject();
-                var original_first_element = obj[obj_array.name][0];
-                var original_element_id = original_first_element[obj_array.key_field];
-                var path = `${obj_array.name}.${obj_array.key_field}`;
+                var original_first_element = obj[test_fields.obj_array.name][0];
+                var original_element_id = original_first_element[test_fields.obj_array.key_field];
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var conditions = {};
                 conditions[path] = original_element_id;
                 var replacement_obj = createNewObject();
-                var value = getValue(replacement_obj[obj_array.name][0], populated_field.name);
-                var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name };
+                var value = getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name);
+                var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: populated_field.name };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var updated_first_element = objs.updated_obj[obj_array.name][0];
+                    var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0];
                     expect(updated_first_element).to.exist;
                     var updated_value = getValue(updated_first_element, populated_field.name);
                     expect(updated_value).to.not.exist;
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: [] });
             _it('- should not remove or delete an existing element of an array of simple types', function () {
-                var string_array = config.test.string_array;
                 var obj = createNewObject();
-                const original_value = obj[string_array.name][0];
+                const original_value = obj[test_fields.string_array.name][0];
                 var conditions = {};
-                conditions[string_array.name] = original_value;
-                var UPDATE_CMD = { cmd, field: string_array.name, element_id: original_value };
+                conditions[test_fields.string_array.name] = original_value;
+                var UPDATE_CMD = { cmd, field: test_fields.string_array.name, element_id: original_value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     throw new Error('unset unexpectedly succeeded');
                 }, (error) => {
@@ -392,16 +378,15 @@ function test_update(getDB, createNewObject, config) {
                     }
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: [] });
             _it('- should not remove or delete an existing element of an array of objects', function () {
-                var obj_array = config.test.obj_array;
                 var obj = createNewObject();
-                const original_first_element = obj[obj_array.name][0];
-                var original_element_id = original_first_element[obj_array.key_field];
-                var path = `${obj_array.name}.${obj_array.key_field}`;
+                const original_first_element = obj[test_fields.obj_array.name][0];
+                var original_element_id = original_first_element[test_fields.obj_array.key_field];
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var conditions = {};
                 conditions[path] = original_element_id;
-                var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id };
+                var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     throw new Error('unset unexpectedly succeeded');
                 }, (error) => {
@@ -417,36 +402,34 @@ function test_update(getDB, createNewObject, config) {
         });
         describe('cmd=insert', function () {
             let cmd = 'insert';
-            let _it = testOrSkip({ requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]] });
+            let _it = testOrSkip({ requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: [] });
             _it('+ should create a new element in an array of simple types', function () {
-                var string_array = config.test.string_array;
                 var obj = createNewObject();
                 const original_value = getRandomValue('string');
-                obj[string_array.name] = [original_value];
+                obj[test_fields.string_array.name] = [original_value];
                 var conditions = {};
-                conditions[string_array.name] = original_value;
+                conditions[test_fields.string_array.name] = original_value;
                 const additional_value = getRandomValue('string');
-                var UPDATE_CMD = { cmd, field: string_array.name, value: additional_value };
+                var UPDATE_CMD = { cmd, field: test_fields.string_array.name, value: additional_value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var array = objs.updated_obj[string_array.name];
+                    var array = objs.updated_obj[test_fields.string_array.name];
                     expect(array.length).to.equal(2);
                     expect(array[0]).to.equal(original_value);
                     expect(array[1]).to.equal(additional_value);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: [] });
             _it('+ should create a new element in an array of objects', function () {
-                var obj_array = config.test.obj_array;
                 var obj = createNewObject();
-                const original_first_element = obj[obj_array.name][0];
-                var original_element_id = original_first_element[obj_array.key_field];
-                var path = `${obj_array.name}.${obj_array.key_field}`;
+                const original_first_element = obj[test_fields.obj_array.name][0];
+                var original_element_id = original_first_element[test_fields.obj_array.key_field];
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var conditions = {};
                 conditions[path] = original_element_id;
-                var added_element = obj_array.createElement();
-                var UPDATE_CMD = { cmd, field: obj_array.name, value: added_element };
+                var added_element = test_fields.obj_array.createElement();
+                var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, value: added_element };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var array = objs.updated_obj[obj_array.name];
+                    var array = objs.updated_obj[test_fields.obj_array.name];
                     expect(array).to.have.lengthOf(2);
                     // didn't compare entire component via deep.equal because of _id
                     expectDBOjectToContainAllObjectFields(array[0], original_first_element);
@@ -456,27 +439,25 @@ function test_update(getDB, createNewObject, config) {
         });
         describe('cmd=remove', function () {
             let cmd = 'remove';
-            let _it = testOrSkip({ requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]] });
+            let _it = testOrSkip({ requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: [] });
             _it('+ should remove an existing element from an array of simple types', function () {
-                var string_array = config.test.string_array;
                 var obj = createNewObject();
-                expect(obj[string_array.name]).to.have.lengthOf(1);
-                var original_value = obj[string_array.name][0];
-                var UPDATE_CMD = { cmd, field: string_array.name, element_id: original_value };
+                expect(obj[test_fields.string_array.name]).to.have.lengthOf(1);
+                var original_value = obj[test_fields.string_array.name][0];
+                var UPDATE_CMD = { cmd, field: test_fields.string_array.name, element_id: original_value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    expect(objs.updated_obj[string_array.name]).to.have.lengthOf(0);
+                    expect(objs.updated_obj[test_fields.string_array.name]).to.have.lengthOf(0);
                 });
             });
-            _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
+            _it = testOrSkip({ requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: [] });
             _it('+ should remove an existing element from an array of objects', function () {
-                var obj_array = config.test.obj_array;
                 var obj = createNewObject();
-                expect(obj[obj_array.name]).to.have.lengthOf(1);
-                const first_element = obj[obj_array.name][0];
-                var element_id = first_element[obj_array.key_field];
-                var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id };
+                expect(obj[test_fields.obj_array.name]).to.have.lengthOf(1);
+                const first_element = obj[test_fields.obj_array.name][0];
+                var element_id = first_element[test_fields.obj_array.key_field];
+                var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    expect(objs.updated_obj[obj_array.name]).to.have.lengthOf(0);
+                    expect(objs.updated_obj[test_fields.obj_array.name]).to.have.lengthOf(0);
                 });
             });
         });
@@ -519,18 +500,18 @@ function test_del(getDB, createNewObject, config) {
 }
 exports.test_del = test_del;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-function test_find(getDB, createNewObject, unique_key_fieldname) {
-    it('+ should find an object with a matching name', function () {
+function test_find(getDB, createNewObject, test_fields, supported) {
+    it('+ should find an object with a matching unique field', function () {
         var db = getDB();
         var obj = createNewObject();
         return db.create(obj).then(function (created_obj) {
             var conditions = {};
-            conditions[unique_key_fieldname] = obj[unique_key_fieldname];
+            conditions[test_fields.unique_key_fieldname] = obj[test_fields.unique_key_fieldname];
             return db.find(conditions).then(function (found_objs) {
                 expect(found_objs).to.be.instanceof(Array);
                 expect(found_objs).to.have.lengthOf(1);
                 var found_obj = found_objs[0];
-                expect(found_obj[unique_key_fieldname]).to.equal(obj[unique_key_fieldname]);
+                expect(found_obj[test_fields.unique_key_fieldname]).to.equal(obj[test_fields.unique_key_fieldname]);
             });
         });
     });

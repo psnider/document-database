@@ -1,9 +1,8 @@
 import chai                             = require('chai')
 var expect                              = chai.expect
 
-import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand, UpdateFieldCommandType, Cursor} from '../document-database.d'
-import {UnsupportedUpdateArrayCmds, UnsupportedUpdateObjectCmds, UpdateConfiguration} from './document-database-tests.d'
-
+import {DocumentDatabase, DocumentBase, DocumentID, SupportedFeatures, UpdateFieldCommand, UpdateFieldCommandType, Cursor} from '../document-database.d'
+import {FieldsUsedInTests} from './document-database-tests.d'
 
 
 // defaults to test, but selects skip if:
@@ -53,7 +52,7 @@ function expectDBOjectToContainAllObjectFields(db_obj, obj) {
 
 
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-export function test_create<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, config: string[]): void {
+export function test_create<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests): void {
 
     it('+ should create a new object', function() {
         var db = getDB()
@@ -62,9 +61,7 @@ export function test_create<DocumentType extends DocumentBase>(getDB: () => Docu
             (created_obj) => {
                 expect(created_obj).to.not.be.eql(obj)
                 expect(created_obj._id).to.exist
-                config.forEach((fieldname) => {
-                    expect(created_obj[fieldname]).to.equal(obj[fieldname])
-                })
+                expect(created_obj[test_fields.populated_string]).to.equal(obj[test_fields.populated_string])
             }
         )
     })
@@ -111,7 +108,7 @@ export function test_create<DocumentType extends DocumentBase>(getDB: () => Docu
 
 
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-export function test_read<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, config: string[]): void {
+export function test_read<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests): void {
 
     describe('read an object specified by a single string ID', function() {
 
@@ -123,9 +120,7 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
                     return db.read(created_obj._id).then(
                         (read_obj: DocumentType) => {
                             expect(read_obj).to.not.be.eql(obj)
-                            config.forEach((fieldname) => {
-                                expect(created_obj[fieldname]).to.equal(obj[fieldname])
-                            })
+                            expect(created_obj[test_fields.populated_string]).to.equal(obj[test_fields.populated_string])
                         }
                     )
                 }
@@ -180,10 +175,8 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
                         let created_obj = created_objs[i]
                         let read_obj = read_objs.find((obj) => {return obj._id === created_obj._id})
                         expect(read_obj).to.deep.equal(created_obj)
-                        expect(read_obj).to.not.be.equal(created_obj)
-                        config.forEach((fieldname) => {
-                            expect(read_obj[fieldname]).to.equal(created_obj[fieldname])
-                        })
+                        expect(read_obj).to.not.equal(created_obj)
+                        expect(read_obj[test_fields.populated_string]).to.equal(created_obj[test_fields.populated_string])
                     }
                 })
             })
@@ -210,9 +203,7 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
                         let read_obj = read_objs.find((obj) => {return obj._id === created_obj._id})
                         expect(read_obj).to.deep.equal(created_obj)
                         expect(read_obj).to.not.be.equal(created_obj)
-                        config.forEach((fieldname) => {
-                            expect(read_obj[fieldname]).to.equal(created_obj[fieldname])
-                        })
+                        expect(read_obj[test_fields.populated_string]).to.equal(created_obj[test_fields.populated_string])
                     }
                 })
             })
@@ -236,21 +227,20 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
 
 
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-export function test_replace<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, config: string[]): void {
+export function test_replace<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests, supported: SupportedFeatures): void {
 
-    function replace(): Promise<{original_obj: DocumentType, created_obj: DocumentType, replaced_obj: DocumentType}> {
+    function replace(): Promise<{created_obj: DocumentType, updated_obj: DocumentType, replaced_obj: DocumentType}> {
         var db = getDB()
         var original_obj: DocumentType = createNewObject()
         return db.create(original_obj).then(
             (created_obj) => {
-                expect(config.length).to.be.at.least(1)
-                config.forEach((fieldname) => {
-                    created_obj[fieldname] = created_obj[fieldname] + 1
-                })
-                return db.replace(created_obj).then(
+                let updated_obj = Object.assign({}, created_obj)
+                updated_obj[test_fields.populated_string] = created_obj[test_fields.populated_string] + 1
+                return db.replace(updated_obj).then(
                     (replaced_obj) => {
-                        expect(replaced_obj).to.not.equal(created_obj)
-                        return {original_obj, created_obj, replaced_obj}
+                        expect(replaced_obj).to.not.equal(updated_obj)
+                        expect(replaced_obj[test_fields.populated_string]).to.equal(updated_obj[test_fields.populated_string])
+                        return {created_obj, updated_obj, replaced_obj}
                     }
                 )
             }
@@ -258,37 +248,35 @@ export function test_replace<DocumentType extends DocumentBase>(getDB: () => Doc
     }
 
 
+    let _it = testOrSkip({requires: [supported.replace]})
     it('+ should replace an existing object', function() {
         return replace().then((objs) => {
-            let original_obj = objs.original_obj
             let created_obj = objs.created_obj
+            let updated_obj = objs.updated_obj
             let replaced_obj = objs.replaced_obj
-            config.forEach((fieldname) => {
-                expect(replaced_obj[fieldname]).to.equal(created_obj[fieldname])
-                expect(replaced_obj[fieldname]).to.not.equal(original_obj[fieldname])
-            })
+            expect(replaced_obj[test_fields.populated_string]).to.equal(updated_obj[test_fields.populated_string])
+            expect(replaced_obj[test_fields.populated_string]).to.not.equal(created_obj[test_fields.populated_string])
         })
     })
 
-
+    _it = testOrSkip({requires: [supported.replace]})
     it('+ should update the object version', function() {
         return replace().then((objs) => {
             let created_obj = objs.created_obj
+            let updated_obj = objs.updated_obj
             let replaced_obj = objs.replaced_obj
-            config.forEach((fieldname) => {
-                expect(created_obj._obj_ver).to.equal(1)
-                expect(replaced_obj._obj_ver).to.equal(2)
-            })
+            expect(created_obj._obj_ver).to.equal(1)
+            expect(replaced_obj._obj_ver).to.equal(2)
         })
     })
 
 }
 
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-export function test_update<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, config: UpdateConfiguration): void {
+export function test_update<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests, supported: SupportedFeatures): void {
 
-    let unsupported_array:  UnsupportedUpdateArrayCmds  = (config.unsupported && config.unsupported.array) || {set: false, unset: false, insert: false, remove: false}
-    let unsupported_object: UnsupportedUpdateObjectCmds = (config.unsupported && config.unsupported.object) || {set: false, unset: false}
+    let supported_array  = supported.update.array
+    let supported_object = supported.update.object
 
 
     function test_update(obj: DocumentType, update_cmd: UpdateFieldCommand): Promise<{created_obj: DocumentType, updated_obj: DocumentType}> {
@@ -310,10 +298,10 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
 
             let cmd: UpdateFieldCommandType = 'set'
 
-            let _it = testOrSkip({requires: [!!config.test.populated_string], skip_if: [unsupported_object[cmd]]})
+            let _it = testOrSkip({requires: [(test_fields.populated_string != null), supported_object[cmd]], skip_if: []})
             _it('+ should replace an existing field in an object', function() {
                 var obj: DocumentType = createNewObject()
-                var populated_string = config.test.populated_string 
+                var populated_string = test_fields.populated_string 
                 expect(obj[populated_string]).to.exist
                 var replacement_value = obj[populated_string] + 1
                 var UPDATE_CMD: UpdateFieldCommand = {cmd, field: populated_string, value: replacement_value}
@@ -323,10 +311,10 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.unpopulated_string != null), supported_object[cmd]], skip_if: []})
             _it('+ should create a non-existant field in an object', function() {
                 var obj: DocumentType = createNewObject()
-                var unpopulated_string = config.test.unpopulated_string 
+                var unpopulated_string = test_fields.unpopulated_string 
                 expect(obj[unpopulated_string]).to.not.exist
                 var value = 'abc'
                 var UPDATE_CMD: UpdateFieldCommand = {cmd, field: unpopulated_string, value}
@@ -336,10 +324,10 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.unpopulated_string != null), supported_object[cmd]], skip_if: []})
             _it('+ should update the object version', function() {
                 var obj: DocumentType = createNewObject()
-                var unpopulated_string = config.test.unpopulated_string 
+                var unpopulated_string = test_fields.unpopulated_string 
                 expect(obj[unpopulated_string]).to.not.exist
                 var value = 'abc'
                 var UPDATE_CMD: UpdateFieldCommand = {cmd, field: unpopulated_string, value}
@@ -357,10 +345,10 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             let cmd: UpdateFieldCommandType = 'unset'
 
 
-            let _it = testOrSkip({requires: [!!config.test.populated_string], skip_if: [unsupported_object[cmd]]})
+            let _it = testOrSkip({requires: [(test_fields.populated_string != null), supported_object[cmd]], skip_if: []})
             _it('+ should remove an existing field in an object', function() {
                 var obj: DocumentType = createNewObject()
-                var populated_string = config.test.populated_string 
+                var populated_string = test_fields.populated_string 
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: populated_string}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     expect(objs.updated_obj[populated_string]).to.be.undefined
@@ -380,9 +368,9 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             let cmd: UpdateFieldCommandType = 'set'
 
 
-            let _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
+            let _it = testOrSkip({requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: []})
             _it('+ should replace an existing element in an array of simple types', function() {
-                var string_array = config.test.string_array
+                var string_array = test_fields.string_array
                 var obj: DocumentType = createNewObject()
                 const original_value = obj[string_array.name][0]
                 const updated_value = original_value + 1
@@ -396,9 +384,9 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: []})
             _it('+ should replace an existing element in an array of objects', function() {
-                var obj_array = config.test.obj_array
+                var obj_array = test_fields.obj_array
                 var obj: DocumentType = createNewObject()
                 var original_first_element = obj[obj_array.name][0]
                 var original_element_id = original_first_element[obj_array.key_field]
@@ -415,41 +403,39 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.unpopulated_field], skip_if: [unsupported_array.set]})
+            _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.unpopulated_field != null), supported_array[cmd]], skip_if: []})
             _it('+ should create a new field in an existing element in an array of objects', function() {
-                var obj_array = config.test.obj_array
-                var unpopulated_field = obj_array.unpopulated_field
+                var unpopulated_field = test_fields.obj_array.unpopulated_field
                 var obj: DocumentType = createNewObject()
-                var original_first_element = obj[obj_array.name][0]
-                var original_element_id = original_first_element[obj_array.key_field]
-                var path = `${obj_array.name}.${obj_array.key_field}`
+                var original_first_element = obj[test_fields.obj_array.name][0]
+                var original_element_id = original_first_element[test_fields.obj_array.key_field]
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`
                 var conditions = {}
                 conditions[path] = original_element_id
                 var value = getRandomValue(unpopulated_field.type)
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value}
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var updated_first_element = objs.updated_obj[obj_array.name][0]
+                    var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0]
                     var updated_value = getValue(updated_first_element, unpopulated_field.name)
                     expect(updated_value).to.equal(value)
                 })
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: []})
             _it('+ should replace an existing field in an existing element in an array of objects', function() {
-                var obj_array = config.test.obj_array
-                var populated_field = config.test.obj_array.populated_field
+                var populated_field = test_fields.obj_array.populated_field
                 var obj: DocumentType = createNewObject()
-                var original_first_element = obj[obj_array.name][0]
-                var original_element_id = original_first_element[obj_array.key_field]
-                var path = `${obj_array.name}.${obj_array.key_field}`
+                var original_first_element = obj[test_fields.obj_array.name][0]
+                var original_element_id = original_first_element[test_fields.obj_array.key_field]
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`
                 var conditions = {}
                 conditions[path] = original_element_id
                 var replacement_obj: DocumentType = createNewObject()
-                var value = getValue(replacement_obj[obj_array.name][0], populated_field.name)
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value}
+                var value = getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name)
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var updated_first_element = objs.updated_obj[obj_array.name][0]
+                    var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0]
                     var updated_value = getValue(updated_first_element, populated_field.name)
                     expect(updated_value).to.equal(value)
                 })
@@ -463,21 +449,20 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             let cmd: UpdateFieldCommandType = 'unset'
 
 
-            let _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
+            let _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: []})
             _it('+ should remove an existing field from an existing element in the array', function() {
-                var obj_array = config.test.obj_array
-                var populated_field = config.test.obj_array.populated_field
+                var populated_field = test_fields.obj_array.populated_field
                 var obj: DocumentType = createNewObject()
-                var original_first_element = obj[obj_array.name][0]
-                var original_element_id = original_first_element[obj_array.key_field]
-                var path = `${obj_array.name}.${obj_array.key_field}`
+                var original_first_element = obj[test_fields.obj_array.name][0]
+                var original_element_id = original_first_element[test_fields.obj_array.key_field]
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`
                 var conditions = {}
                 conditions[path] = original_element_id
                 var replacement_obj: DocumentType = createNewObject()
-                var value = getValue(replacement_obj[obj_array.name][0], populated_field.name)
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name}
+                var value = getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name)
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: populated_field.name}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var updated_first_element = objs.updated_obj[obj_array.name][0]
+                    var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0]
                     expect(updated_first_element).to.exist
                     var updated_value = getValue(updated_first_element, populated_field.name)
                     expect(updated_value).to.not.exist
@@ -485,14 +470,13 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: []})
             _it('- should not remove or delete an existing element of an array of simple types', function() {
-                var string_array = config.test.string_array
                 var obj: DocumentType = createNewObject()
-                const original_value = obj[string_array.name][0]
+                const original_value = obj[test_fields.string_array.name][0]
                 var conditions = {}
-                conditions[string_array.name] = original_value
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, element_id: original_value}
+                conditions[test_fields.string_array.name] = original_value
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.string_array.name, element_id: original_value}
                 return test_update(obj, UPDATE_CMD).then(
                     (objs) => {
                         throw new Error('unset unexpectedly succeeded')
@@ -509,16 +493,15 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: []})
             _it('- should not remove or delete an existing element of an array of objects', function() {
-                var obj_array = config.test.obj_array
                 var obj: DocumentType = createNewObject()
-                const original_first_element = obj[obj_array.name][0]
-                var original_element_id = original_first_element[obj_array.key_field]
-                var path = `${obj_array.name}.${obj_array.key_field}`
+                const original_first_element = obj[test_fields.obj_array.name][0]
+                var original_element_id = original_first_element[test_fields.obj_array.key_field]
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`
                 var conditions = {}
                 conditions[path] = original_element_id
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id}
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id}
                 return test_update(obj, UPDATE_CMD).then(
                     (objs) => {
                         throw new Error('unset unexpectedly succeeded')
@@ -542,18 +525,17 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             let cmd: UpdateFieldCommandType = 'insert'
 
 
-            let _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
+            let _it = testOrSkip({requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: []})
             _it('+ should create a new element in an array of simple types', function() {
-                var string_array = config.test.string_array
                 var obj: DocumentType = createNewObject()
                 const original_value = getRandomValue('string')
-                obj[string_array.name] = [original_value]
+                obj[test_fields.string_array.name] = [original_value]
                 var conditions = {}
-                conditions[string_array.name] = original_value
+                conditions[test_fields.string_array.name] = original_value
                 const additional_value = getRandomValue('string')
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, value: additional_value}
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.string_array.name, value: additional_value}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var array = objs.updated_obj[string_array.name]
+                    var array = objs.updated_obj[test_fields.string_array.name]
                     expect(array.length).to.equal(2)
                     expect(array[0]).to.equal(original_value)
                     expect(array[1]).to.equal(additional_value)
@@ -561,19 +543,18 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: []})
             _it('+ should create a new element in an array of objects', function() {
-                var obj_array = config.test.obj_array
                 var obj: DocumentType = createNewObject()
-                const original_first_element = obj[obj_array.name][0]
-                var original_element_id = original_first_element[obj_array.key_field]
-                var path = `${obj_array.name}.${obj_array.key_field}`
+                const original_first_element = obj[test_fields.obj_array.name][0]
+                var original_element_id = original_first_element[test_fields.obj_array.key_field]
+                var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`
                 var conditions = {}
                 conditions[path] = original_element_id
-                var added_element = obj_array.createElement()
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, value: added_element}
+                var added_element = test_fields.obj_array.createElement()
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.obj_array.name, value: added_element}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    var array = objs.updated_obj[obj_array.name]
+                    var array = objs.updated_obj[test_fields.obj_array.name]
                     expect(array).to.have.lengthOf(2)
                     // didn't compare entire component via deep.equal because of _id
                     expectDBOjectToContainAllObjectFields(array[0], original_first_element)
@@ -589,29 +570,27 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
             let cmd: UpdateFieldCommandType = 'remove'
 
 
-            let _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
+            let _it = testOrSkip({requires: [(test_fields.string_array != null), supported_array[cmd]], skip_if: []})
             _it('+ should remove an existing element from an array of simple types', function() {
-                var string_array = config.test.string_array
                 var obj: DocumentType = createNewObject()
-                expect(obj[string_array.name]).to.have.lengthOf(1)
-                var original_value = obj[string_array.name][0]
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, element_id: original_value}
+                expect(obj[test_fields.string_array.name]).to.have.lengthOf(1)
+                var original_value = obj[test_fields.string_array.name][0]
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.string_array.name, element_id: original_value}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    expect(objs.updated_obj[string_array.name]).to.have.lengthOf(0)
+                    expect(objs.updated_obj[test_fields.string_array.name]).to.have.lengthOf(0)
                 })
             })
 
 
-            _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
+            _it = testOrSkip({requires: [(test_fields.obj_array != null), (test_fields.obj_array.key_field != null), supported_array[cmd]], skip_if: []})
             _it('+ should remove an existing element from an array of objects', function() {
-                var obj_array = config.test.obj_array
                 var obj: DocumentType = createNewObject()
-                expect(obj[obj_array.name]).to.have.lengthOf(1)
-                const first_element = obj[obj_array.name][0]
-                var element_id = first_element[obj_array.key_field]
-                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id}
+                expect(obj[test_fields.obj_array.name]).to.have.lengthOf(1)
+                const first_element = obj[test_fields.obj_array.name][0]
+                var element_id = first_element[test_fields.obj_array.key_field]
+                var UPDATE_CMD : UpdateFieldCommand = {cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id}
                 return test_update(obj, UPDATE_CMD).then((objs) => {
-                    expect(objs.updated_obj[obj_array.name]).to.have.lengthOf(0)
+                    expect(objs.updated_obj[test_fields.obj_array.name]).to.have.lengthOf(0)
                 })
             })
 
@@ -679,19 +658,19 @@ export function test_del<DocumentType extends DocumentBase>(getDB: () => Documen
 
 
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
-export function test_find<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, unique_key_fieldname: string): void {
+export function test_find<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, test_fields: FieldsUsedInTests, supported: SupportedFeatures): void {
 
-    it('+ should find an object with a matching name', function () {
+    it('+ should find an object with a matching unique field', function () {
         var db = getDB()
         var obj = createNewObject()
         return db.create(obj).then(function (created_obj) {
             var conditions = {}
-            conditions[unique_key_fieldname] = obj[unique_key_fieldname]
+            conditions[test_fields.unique_key_fieldname] = obj[test_fields.unique_key_fieldname]
             return db.find(conditions).then(function (found_objs) {
                 expect(found_objs).to.be.instanceof(Array)
                 expect(found_objs).to.have.lengthOf(1)
                 var found_obj = found_objs[0]
-                expect(found_obj[unique_key_fieldname]).to.equal(obj[unique_key_fieldname])
+                expect(found_obj[test_fields.unique_key_fieldname]).to.equal(obj[test_fields.unique_key_fieldname])
             });
         });
     });
