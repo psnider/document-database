@@ -68,6 +68,13 @@ function test_create(getDB, createNewObject, config) {
             return 'ok';
         });
     });
+    it('+ should create a new object, containing an object version of 1', function () {
+        var db = getDB();
+        var obj = createNewObject();
+        return db.create(obj).then((created_obj) => {
+            expect(created_obj._obj_ver).to.eql(1);
+        });
+    });
 }
 exports.test_create = test_create;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
@@ -168,21 +175,38 @@ function test_read(getDB, createNewObject, config) {
 exports.test_read = test_read;
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
 function test_replace(getDB, createNewObject, config) {
-    //      AssertionError: expected { Object (_id, account_email, ...) } to not deeply equal { Object (__v, account_email, ...) }
-    it('+ should replace an existing object', function () {
+    function replace() {
         var db = getDB();
-        var obj = createNewObject();
-        return db.create(obj).then((created_obj) => {
+        var original_obj = createNewObject();
+        return db.create(original_obj).then((created_obj) => {
             expect(config.length).to.be.at.least(1);
             config.forEach((fieldname) => {
                 created_obj[fieldname] = created_obj[fieldname] + 1;
             });
             return db.replace(created_obj).then((replaced_obj) => {
                 expect(replaced_obj).to.not.equal(created_obj);
-                config.forEach((fieldname) => {
-                    expect(replaced_obj[fieldname]).to.equal(created_obj[fieldname]);
-                    expect(replaced_obj[fieldname]).to.not.equal(obj[fieldname]);
-                });
+                return { original_obj, created_obj, replaced_obj };
+            });
+        });
+    }
+    it('+ should replace an existing object', function () {
+        return replace().then((objs) => {
+            let original_obj = objs.original_obj;
+            let created_obj = objs.created_obj;
+            let replaced_obj = objs.replaced_obj;
+            config.forEach((fieldname) => {
+                expect(replaced_obj[fieldname]).to.equal(created_obj[fieldname]);
+                expect(replaced_obj[fieldname]).to.not.equal(original_obj[fieldname]);
+            });
+        });
+    });
+    it('+ should update the object version', function () {
+        return replace().then((objs) => {
+            let created_obj = objs.created_obj;
+            let replaced_obj = objs.replaced_obj;
+            config.forEach((fieldname) => {
+                expect(created_obj._obj_ver).to.equal(1);
+                expect(replaced_obj._obj_ver).to.equal(2);
             });
         });
     });
@@ -192,17 +216,14 @@ exports.test_replace = test_replace;
 function test_update(getDB, createNewObject, config) {
     let unsupported_array = (config.unsupported && config.unsupported.array) || { set: false, unset: false, insert: false, remove: false };
     let unsupported_object = (config.unsupported && config.unsupported.object) || { set: false, unset: false };
-    function test_update(obj, conditions, update_cmd) {
+    function test_update(obj, update_cmd) {
         var db = getDB();
-        if (conditions == null)
-            conditions = {};
-        var _id;
-        return db.create(obj).then((result) => {
-            _id = result._id;
-            conditions['_id'] = _id;
-            return db.update(conditions, [update_cmd]).then((updated_obj) => {
+        return db.create(obj).then((created_obj) => {
+            let _id = created_obj._id;
+            let original_obj_ver = created_obj._obj_ver;
+            return db.update(_id, original_obj_ver, [update_cmd]).then((updated_obj) => {
                 expect(updated_obj._id).to.equal(_id);
-                return updated_obj;
+                return { created_obj, updated_obj };
             });
         });
     }
@@ -216,8 +237,8 @@ function test_update(getDB, createNewObject, config) {
                 expect(obj[populated_string]).to.exist;
                 var replacement_value = obj[populated_string] + 1;
                 var UPDATE_CMD = { cmd, field: populated_string, value: replacement_value };
-                return test_update(obj, null, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[populated_string]).to.equal(replacement_value);
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[populated_string]).to.equal(replacement_value);
                 });
             });
             _it = testOrSkip({ requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]] });
@@ -227,8 +248,20 @@ function test_update(getDB, createNewObject, config) {
                 expect(obj[unpopulated_string]).to.not.exist;
                 var value = 'abc';
                 var UPDATE_CMD = { cmd, field: unpopulated_string, value };
-                return test_update(obj, null, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[unpopulated_string]).to.equal(value);
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[unpopulated_string]).to.equal(value);
+                });
+            });
+            _it = testOrSkip({ requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]] });
+            _it('+ should update the object version', function () {
+                var obj = createNewObject();
+                var unpopulated_string = config.test.unpopulated_string;
+                expect(obj[unpopulated_string]).to.not.exist;
+                var value = 'abc';
+                var UPDATE_CMD = { cmd, field: unpopulated_string, value };
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.created_obj._obj_ver).to.equal(1);
+                    expect(objs.updated_obj._obj_ver).to.equal(2);
                 });
             });
         });
@@ -239,8 +272,8 @@ function test_update(getDB, createNewObject, config) {
                 var obj = createNewObject();
                 var populated_string = config.test.populated_string;
                 var UPDATE_CMD = { cmd, field: populated_string };
-                return test_update(obj, null, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[populated_string]).to.be.undefined;
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[populated_string]).to.be.undefined;
                 });
             });
         });
@@ -257,9 +290,9 @@ function test_update(getDB, createNewObject, config) {
                 var conditions = { _id: obj._id };
                 conditions[string_array.name] = original_value;
                 var UPDATE_CMD = { cmd, field: string_array.name, element_id: original_value, value: updated_value };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[string_array.name].length).to.equal(1);
-                    expect(updated_obj[string_array.name][0]).to.equal(updated_value);
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[string_array.name].length).to.equal(1);
+                    expect(objs.updated_obj[string_array.name][0]).to.equal(updated_value);
                 });
             });
             _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
@@ -273,9 +306,9 @@ function test_update(getDB, createNewObject, config) {
                 conditions[path] = original_element_id;
                 var REPLACED_ELEMENT = obj_array.createElement();
                 var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, value: REPLACED_ELEMENT };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[obj_array.name].length).to.equal(1);
-                    var updated_first_element = updated_obj[obj_array.name][0];
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[obj_array.name].length).to.equal(1);
+                    var updated_first_element = objs.updated_obj[obj_array.name][0];
                     expect(updated_first_element).to.deep.equal(REPLACED_ELEMENT);
                 });
             });
@@ -291,8 +324,8 @@ function test_update(getDB, createNewObject, config) {
                 conditions[path] = original_element_id;
                 var value = getRandomValue(unpopulated_field.type);
                 var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var updated_first_element = updated_obj[obj_array.name][0];
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var updated_first_element = objs.updated_obj[obj_array.name][0];
                     var updated_value = getValue(updated_first_element, unpopulated_field.name);
                     expect(updated_value).to.equal(value);
                 });
@@ -310,8 +343,8 @@ function test_update(getDB, createNewObject, config) {
                 var replacement_obj = createNewObject();
                 var value = getValue(replacement_obj[obj_array.name][0], populated_field.name);
                 var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var updated_first_element = updated_obj[obj_array.name][0];
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var updated_first_element = objs.updated_obj[obj_array.name][0];
                     var updated_value = getValue(updated_first_element, populated_field.name);
                     expect(updated_value).to.equal(value);
                 });
@@ -332,8 +365,8 @@ function test_update(getDB, createNewObject, config) {
                 var replacement_obj = createNewObject();
                 var value = getValue(replacement_obj[obj_array.name][0], populated_field.name);
                 var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var updated_first_element = updated_obj[obj_array.name][0];
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var updated_first_element = objs.updated_obj[obj_array.name][0];
                     expect(updated_first_element).to.exist;
                     var updated_value = getValue(updated_first_element, populated_field.name);
                     expect(updated_value).to.not.exist;
@@ -347,7 +380,7 @@ function test_update(getDB, createNewObject, config) {
                 var conditions = {};
                 conditions[string_array.name] = original_value;
                 var UPDATE_CMD = { cmd, field: string_array.name, element_id: original_value };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
+                return test_update(obj, UPDATE_CMD).then((objs) => {
                     throw new Error('unset unexpectedly succeeded');
                 }, (error) => {
                     if (error != null) {
@@ -369,7 +402,7 @@ function test_update(getDB, createNewObject, config) {
                 var conditions = {};
                 conditions[path] = original_element_id;
                 var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
+                return test_update(obj, UPDATE_CMD).then((objs) => {
                     throw new Error('unset unexpectedly succeeded');
                 }, (error) => {
                     if (error != null) {
@@ -394,8 +427,8 @@ function test_update(getDB, createNewObject, config) {
                 conditions[string_array.name] = original_value;
                 const additional_value = getRandomValue('string');
                 var UPDATE_CMD = { cmd, field: string_array.name, value: additional_value };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var array = updated_obj[string_array.name];
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var array = objs.updated_obj[string_array.name];
                     expect(array.length).to.equal(2);
                     expect(array[0]).to.equal(original_value);
                     expect(array[1]).to.equal(additional_value);
@@ -412,8 +445,8 @@ function test_update(getDB, createNewObject, config) {
                 conditions[path] = original_element_id;
                 var added_element = obj_array.createElement();
                 var UPDATE_CMD = { cmd, field: obj_array.name, value: added_element };
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var array = updated_obj[obj_array.name];
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var array = objs.updated_obj[obj_array.name];
                     expect(array).to.have.lengthOf(2);
                     // didn't compare entire component via deep.equal because of _id
                     expectDBOjectToContainAllObjectFields(array[0], original_first_element);
@@ -430,8 +463,8 @@ function test_update(getDB, createNewObject, config) {
                 expect(obj[string_array.name]).to.have.lengthOf(1);
                 var original_value = obj[string_array.name][0];
                 var UPDATE_CMD = { cmd, field: string_array.name, element_id: original_value };
-                return test_update(obj, undefined, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[string_array.name]).to.have.lengthOf(0);
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[string_array.name]).to.have.lengthOf(0);
                 });
             });
             _it = testOrSkip({ requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]] });
@@ -442,8 +475,8 @@ function test_update(getDB, createNewObject, config) {
                 const first_element = obj[obj_array.name][0];
                 var element_id = first_element[obj_array.key_field];
                 var UPDATE_CMD = { cmd, field: obj_array.name, key_field: obj_array.key_field, element_id };
-                return test_update(obj, undefined, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[obj_array.name]).to.have.lengthOf(0);
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[obj_array.name]).to.have.lengthOf(0);
                 });
             });
         });

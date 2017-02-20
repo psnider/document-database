@@ -2,6 +2,7 @@ export type DocumentID = string
 // Every document must implement this.
 export interface DocumentBase {
     _id?: DocumentID
+    _obj_ver?: number
 }
 type DocumentType = DocumentBase
 
@@ -40,11 +41,11 @@ export type ObjectOrArrayCallback = (error: Error, results?: DocumentType | Docu
 // - void: if a callback is provided
 // - a Promise: if a callback is not provided
 export abstract class DocumentDatabase {
-    constructor(db_name: string, type: string | {})
     connect(done: ErrorOnlyCallback): void
     connect() : Promise<void>
     disconnect(done: ErrorOnlyCallback): void
     disconnect() : Promise<void>
+    // create sets _obj_ver = 1
     create(obj: DocumentType): Promise<DocumentType>
     create(obj: DocumentType, done: ObjectCallback): void
     // if the document doesn't exist, it returns null/undefined
@@ -58,8 +59,8 @@ export abstract class DocumentDatabase {
     read(_ids: DocumentID[], done: ArrayCallback) : void
     replace(obj: DocumentType) : Promise<DocumentType>
     replace(obj: DocumentType, done: ObjectCallback) : void
-    update(conditions : Conditions, updates: UpdateFieldCommand[]) : Promise<DocumentType>
-    update(conditions : Conditions, updates: UpdateFieldCommand[], done: ObjectCallback) : void
+    update(_id: DocumentID, _obj_ver: number, updates: UpdateFieldCommand[]) : Promise<DocumentType>
+    update(_id: DocumentID, _obj_ver: number, updates: UpdateFieldCommand[], done: ObjectCallback) : void
     del(_id: DocumentID) : Promise<void>
     del(_id: DocumentID, done: ErrorOnlyCallback) : void
     find(conditions : Conditions, fields?: Fields, sort?: Sort, cursor?: Cursor) : Promise<DocumentType[]> 

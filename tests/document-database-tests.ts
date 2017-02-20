@@ -1,7 +1,7 @@
 import chai                             = require('chai')
 var expect                              = chai.expect
 
-import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand, Cursor} from '../document-database.d'
+import {DocumentDatabase, DocumentBase, DocumentID, UpdateFieldCommand, UpdateFieldCommandType, Cursor} from '../document-database.d'
 import {UnsupportedUpdateArrayCmds, UnsupportedUpdateObjectCmds, UpdateConfiguration} from './document-database-tests.d'
 
 
@@ -92,6 +92,17 @@ export function test_create<DocumentType extends DocumentBase>(getDB: () => Docu
             (error) => {
                 expect(error.message).to.equal('_id isnt allowed for create')
                 return 'ok'
+            }
+        )
+    })
+
+
+    it('+ should create a new object, containing an object version of 1', function() {
+        var db = getDB()
+        var obj: DocumentType = createNewObject()
+        return db.create(obj).then(
+            (created_obj) => {
+                expect(created_obj._obj_ver).to.eql(1)
             }
         )
     })
@@ -220,7 +231,6 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
 
     })
 
-
 }
 
 
@@ -228,12 +238,10 @@ export function test_read<DocumentType extends DocumentBase>(getDB: () => Docume
 // seem to need getDB to be dynamic, otherwise DocumentDatabase is undefined!
 export function test_replace<DocumentType extends DocumentBase>(getDB: () => DocumentDatabase, createNewObject: () => DocumentType, config: string[]): void {
 
-//      AssertionError: expected { Object (_id, account_email, ...) } to not deeply equal { Object (__v, account_email, ...) }
-
-    it('+ should replace an existing object', function() {
+    function replace(): Promise<{original_obj: DocumentType, created_obj: DocumentType, replaced_obj: DocumentType}> {
         var db = getDB()
-        var obj: DocumentType = createNewObject()
-        return db.create(obj).then(
+        var original_obj: DocumentType = createNewObject()
+        return db.create(original_obj).then(
             (created_obj) => {
                 expect(config.length).to.be.at.least(1)
                 config.forEach((fieldname) => {
@@ -242,14 +250,36 @@ export function test_replace<DocumentType extends DocumentBase>(getDB: () => Doc
                 return db.replace(created_obj).then(
                     (replaced_obj) => {
                         expect(replaced_obj).to.not.equal(created_obj)
-                        config.forEach((fieldname) => {
-                            expect(replaced_obj[fieldname]).to.equal(created_obj[fieldname])
-                            expect(replaced_obj[fieldname]).to.not.equal(obj[fieldname])
-                        })
+                        return {original_obj, created_obj, replaced_obj}
                     }
                 )
             }
         )
+    }
+
+
+    it('+ should replace an existing object', function() {
+        return replace().then((objs) => {
+            let original_obj = objs.original_obj
+            let created_obj = objs.created_obj
+            let replaced_obj = objs.replaced_obj
+            config.forEach((fieldname) => {
+                expect(replaced_obj[fieldname]).to.equal(created_obj[fieldname])
+                expect(replaced_obj[fieldname]).to.not.equal(original_obj[fieldname])
+            })
+        })
+    })
+
+
+    it('+ should update the object version', function() {
+        return replace().then((objs) => {
+            let created_obj = objs.created_obj
+            let replaced_obj = objs.replaced_obj
+            config.forEach((fieldname) => {
+                expect(created_obj._obj_ver).to.equal(1)
+                expect(replaced_obj._obj_ver).to.equal(2)
+            })
+        })
     })
 
 }
@@ -261,16 +291,14 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
     let unsupported_object: UnsupportedUpdateObjectCmds = (config.unsupported && config.unsupported.object) || {set: false, unset: false}
 
 
-    function test_update(obj, conditions, update_cmd: UpdateFieldCommand): Promise<DocumentType> {
+    function test_update(obj: DocumentType, update_cmd: UpdateFieldCommand): Promise<{created_obj: DocumentType, updated_obj: DocumentType}> {
         var db = getDB()
-        if (conditions == null)  conditions = {}
-        var _id 
-        return db.create(obj).then((result: DocumentType) => {
-            _id = result._id
-            conditions['_id'] = _id
-            return db.update(conditions, [update_cmd]).then((updated_obj) => {
+        return db.create(obj).then((created_obj: DocumentType) => {
+            let _id = created_obj._id
+            let original_obj_ver = created_obj._obj_ver
+            return db.update(_id, original_obj_ver, [update_cmd]).then((updated_obj) => {
                 expect(updated_obj._id).to.equal(_id)
-                return updated_obj
+                return {created_obj, updated_obj}
             })
         })
     }
@@ -280,7 +308,7 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
 
         describe('cmd=set:', function() {
 
-            let cmd = 'set'
+            let cmd: UpdateFieldCommandType = 'set'
 
             let _it = testOrSkip({requires: [!!config.test.populated_string], skip_if: [unsupported_object[cmd]]})
             _it('+ should replace an existing field in an object', function() {
@@ -289,8 +317,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 expect(obj[populated_string]).to.exist
                 var replacement_value = obj[populated_string] + 1
                 var UPDATE_CMD: UpdateFieldCommand = {cmd, field: populated_string, value: replacement_value}
-                return test_update(obj, null, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[populated_string]).to.equal(replacement_value)
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[populated_string]).to.equal(replacement_value)
                 })
             })
 
@@ -302,18 +330,31 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 expect(obj[unpopulated_string]).to.not.exist
                 var value = 'abc'
                 var UPDATE_CMD: UpdateFieldCommand = {cmd, field: unpopulated_string, value}
-                return test_update(obj, null, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[unpopulated_string]).to.equal(value)
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[unpopulated_string]).to.equal(value)
                 })
             })
 
+
+            _it = testOrSkip({requires: [!!config.test.unpopulated_string], skip_if: [unsupported_object[cmd]]})
+            _it('+ should update the object version', function() {
+                var obj: DocumentType = createNewObject()
+                var unpopulated_string = config.test.unpopulated_string 
+                expect(obj[unpopulated_string]).to.not.exist
+                var value = 'abc'
+                var UPDATE_CMD: UpdateFieldCommand = {cmd, field: unpopulated_string, value}
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.created_obj._obj_ver).to.equal(1)
+                    expect(objs.updated_obj._obj_ver).to.equal(2)
+                })
+            })
 
         })
 
 
         describe('cmd=unset', function() {
 
-            let cmd = 'unset'
+            let cmd: UpdateFieldCommandType = 'unset'
 
 
             let _it = testOrSkip({requires: [!!config.test.populated_string], skip_if: [unsupported_object[cmd]]})
@@ -321,8 +362,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 var obj: DocumentType = createNewObject()
                 var populated_string = config.test.populated_string 
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: populated_string}
-                return test_update(obj, null, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[populated_string]).to.be.undefined
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[populated_string]).to.be.undefined
                 })
             })
 
@@ -336,7 +377,7 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
 
         describe('cmd=set', function() {
 
-            let cmd = 'set'
+            let cmd: UpdateFieldCommandType = 'set'
 
 
             let _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
@@ -348,9 +389,9 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 var conditions = {_id: obj._id}
                 conditions[string_array.name] = original_value
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, element_id: original_value, value: updated_value}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[string_array.name].length).to.equal(1)
-                    expect(updated_obj[string_array.name][0]).to.equal(updated_value)
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[string_array.name].length).to.equal(1)
+                    expect(objs.updated_obj[string_array.name][0]).to.equal(updated_value)
                 })
             })
 
@@ -366,9 +407,9 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 conditions[path] = original_element_id
                 var REPLACED_ELEMENT = obj_array.createElement()
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, value: REPLACED_ELEMENT}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[obj_array.name].length).to.equal(1)
-                    var updated_first_element = updated_obj[obj_array.name][0]
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[obj_array.name].length).to.equal(1)
+                    var updated_first_element = objs.updated_obj[obj_array.name][0]
                     expect(updated_first_element).to.deep.equal(REPLACED_ELEMENT)
                 })
             })
@@ -386,8 +427,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 conditions[path] = original_element_id
                 var value = getRandomValue(unpopulated_field.type)
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var updated_first_element = updated_obj[obj_array.name][0]
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var updated_first_element = objs.updated_obj[obj_array.name][0]
                     var updated_value = getValue(updated_first_element, unpopulated_field.name)
                     expect(updated_value).to.equal(value)
                 })
@@ -407,8 +448,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 var replacement_obj: DocumentType = createNewObject()
                 var value = getValue(replacement_obj[obj_array.name][0], populated_field.name)
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var updated_first_element = updated_obj[obj_array.name][0]
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var updated_first_element = objs.updated_obj[obj_array.name][0]
                     var updated_value = getValue(updated_first_element, populated_field.name)
                     expect(updated_value).to.equal(value)
                 })
@@ -419,7 +460,7 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
 
         describe('cmd=unset ', function() {
 
-            let cmd = 'unset'
+            let cmd: UpdateFieldCommandType = 'unset'
 
 
             let _it = testOrSkip({requires: [!!config.test.obj_array && !!config.test.obj_array.key_field], skip_if: [unsupported_array[cmd]]})
@@ -435,8 +476,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 var replacement_obj: DocumentType = createNewObject()
                 var value = getValue(replacement_obj[obj_array.name][0], populated_field.name)
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id, subfield: populated_field.name}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var updated_first_element = updated_obj[obj_array.name][0]
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var updated_first_element = objs.updated_obj[obj_array.name][0]
                     expect(updated_first_element).to.exist
                     var updated_value = getValue(updated_first_element, populated_field.name)
                     expect(updated_value).to.not.exist
@@ -452,8 +493,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 var conditions = {}
                 conditions[string_array.name] = original_value
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, element_id: original_value}
-                return test_update(obj, conditions, UPDATE_CMD).then(
-                    (updated_obj) => {
+                return test_update(obj, UPDATE_CMD).then(
+                    (objs) => {
                         throw new Error('unset unexpectedly succeeded')
                     },
                     (error) => {
@@ -478,8 +519,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 var conditions = {}
                 conditions[path] = original_element_id
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id: original_element_id}
-                return test_update(obj, conditions, UPDATE_CMD).then(
-                    (updated_obj) => {
+                return test_update(obj, UPDATE_CMD).then(
+                    (objs) => {
                         throw new Error('unset unexpectedly succeeded')
                     },
                     (error) => {
@@ -498,7 +539,7 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
 
         describe('cmd=insert', function() {
 
-            let cmd = 'insert'
+            let cmd: UpdateFieldCommandType = 'insert'
 
 
             let _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
@@ -511,8 +552,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 conditions[string_array.name] = original_value
                 const additional_value = getRandomValue('string')
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, value: additional_value}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var array = updated_obj[string_array.name]
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var array = objs.updated_obj[string_array.name]
                     expect(array.length).to.equal(2)
                     expect(array[0]).to.equal(original_value)
                     expect(array[1]).to.equal(additional_value)
@@ -531,8 +572,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 conditions[path] = original_element_id
                 var added_element = obj_array.createElement()
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, value: added_element}
-                return test_update(obj, conditions, UPDATE_CMD).then((updated_obj) => {
-                    var array = updated_obj[obj_array.name]
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    var array = objs.updated_obj[obj_array.name]
                     expect(array).to.have.lengthOf(2)
                     // didn't compare entire component via deep.equal because of _id
                     expectDBOjectToContainAllObjectFields(array[0], original_first_element)
@@ -545,7 +586,7 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
 
         describe('cmd=remove', function() {
 
-            let cmd = 'remove'
+            let cmd: UpdateFieldCommandType = 'remove'
 
 
             let _it = testOrSkip({requires: [!!config.test.string_array], skip_if: [unsupported_array[cmd]]})
@@ -555,8 +596,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 expect(obj[string_array.name]).to.have.lengthOf(1)
                 var original_value = obj[string_array.name][0]
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: string_array.name, element_id: original_value}
-                return test_update(obj, undefined, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[string_array.name]).to.have.lengthOf(0)
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[string_array.name]).to.have.lengthOf(0)
                 })
             })
 
@@ -569,8 +610,8 @@ export function test_update<DocumentType extends DocumentBase>(getDB: () => Docu
                 const first_element = obj[obj_array.name][0]
                 var element_id = first_element[obj_array.key_field]
                 var UPDATE_CMD : UpdateFieldCommand = {cmd, field: obj_array.name, key_field: obj_array.key_field, element_id}
-                return test_update(obj, undefined, UPDATE_CMD).then((updated_obj) => {
-                    expect(updated_obj[obj_array.name]).to.have.lengthOf(0)
+                return test_update(obj, UPDATE_CMD).then((objs) => {
+                    expect(objs.updated_obj[obj_array.name]).to.have.lengthOf(0)
                 })
             })
 
