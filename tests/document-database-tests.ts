@@ -1,7 +1,8 @@
 import chai                             = require('chai')
 var expect                              = chai.expect
 
-import {DocumentDatabase, DocumentBase, DocumentID, getValue, SupportedFeatures, UpdateFieldCommand, UpdateFieldCommandType, Cursor} from '../document-database.d'
+import {DocumentDatabase, DocumentBase, DocumentID, SupportedFeatures, UpdateFieldCommand, UpdateFieldCommandType, Cursor} from '../document-database.d'
+import {getValue} from '../document-database'
 import {FieldsUsedInTests} from './document-database-tests.d'
 
 
