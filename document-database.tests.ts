@@ -11,7 +11,7 @@ describe('deepEqualObjOrMarshalledObj', function() {
         expect(deepEqualObjOrMarshalledObj(null, undefined)).to.be.true
         expect(deepEqualObjOrMarshalledObj(undefined, null)).to.be.true
     })
-            
+
 
     it('+ should compare null-equivalent and non-null-equivalent values as not equal', function() {
         expect(deepEqualObjOrMarshalledObj(null, 0)).to.be.false
@@ -19,7 +19,7 @@ describe('deepEqualObjOrMarshalledObj', function() {
         expect(deepEqualObjOrMarshalledObj(undefined, 0)).to.be.false
         expect(deepEqualObjOrMarshalledObj(0, undefined)).to.be.false
     })
-            
+
 
     it('+ should compare equivalent arrays as equal', function() {
         expect(deepEqualObjOrMarshalledObj([1,'b',3], [1,'b',3])).to.be.true

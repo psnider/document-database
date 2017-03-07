@@ -1,8 +1,21 @@
 "use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// @return the element at given field path, e.g. "hat.size""
+function getValue(obj, fieldpath) {
+    var name_components = fieldpath.split('.');
+    for (var i in name_components) {
+        var name_component = name_components[i];
+        obj = obj[name_component];
+        if (obj == null)
+            return null;
+    }
+    return obj;
+}
+exports.getValue = getValue;
 // considers null, empty array, and obj._id to all be undefined
 function deepEqualObjOrMarshalledObj(lhs, rhs) {
     function coerceType(value) {
-        if (typeof value === 'null')
+        if (value == null)
             return undefined;
         if (Array.isArray(value) && (value.length === 0))
             return undefined;

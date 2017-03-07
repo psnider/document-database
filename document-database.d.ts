@@ -37,6 +37,9 @@ export type ArrayCallback = (error: Error, results?: DocumentType[]) => void
 export type ObjectOrArrayCallback = (error: Error, results?: DocumentType | DocumentType[]) => void
 
 
+export function getValue(obj: object, fieldpath: string): any
+
+
 // Calls return either:
 // - void: if a callback is provided
 // - a Promise: if a callback is not provided

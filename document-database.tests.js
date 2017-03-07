@@ -1,7 +1,8 @@
 "use strict";
-const chai = require('chai');
+Object.defineProperty(exports, "__esModule", { value: true });
+const chai = require("chai");
 var expect = chai.expect;
-const document_database_1 = require('@sabbatical/document-database');
+const document_database_1 = require("@sabbatical/document-database");
 describe('deepEqualObjOrMarshalledObj', function () {
     it('+ should compare null-equivalent values as equal', function () {
         expect(document_database_1.deepEqualObjOrMarshalledObj(null, null)).to.be.true;

@@ -1,13 +1,13 @@
 {
   "name": "@sabbatical/document-database",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Interface to a generic document (no-SQL) database.",
   "main": "document-database.js",
   "keywords": [],
   "private": false,
   "scripts": {
     "clean": "rm -f tests/*.js",
-    "build": "npm run build-lib && npm run build-tests-module",
+    "build": "npm run clean && npm run build-lib && npm run build-tests-module",
     "build-lib": "bin/build-and-install-in-node_modules.sh",
     "build-tests-module": "tsc -p tests",
     "test-only": "mocha -R spec document-database.tests.js",
@@ -24,7 +24,7 @@
     "@types/mocha": "2.2.33",
     "chai": "3.5.0",
     "mocha": "3.1.2",
-    "typescript": "2.0.10"
+    "typescript": "^2.2.1"
   },
   "repository": {
     "type": "git",
