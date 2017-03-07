@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const chai = require("chai");
 var expect = chai.expect;
-const document_database_d_1 = require("../document-database.d");
+const document_database_1 = require("../document-database");
 // defaults to test, but selects skip if:
 // @param conditions.requires must all be true when cast to boolearn
 // @param conditions.requires must all be false when cast to boolearn
@@ -300,7 +300,7 @@ function test_update(getDB, createNewObject, test_fields, supported) {
                 var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: unpopulated_field.name, value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0];
-                    var updated_value = document_database_d_1.getValue(updated_first_element, unpopulated_field.name);
+                    var updated_value = document_database_1.getValue(updated_first_element, unpopulated_field.name);
                     expect(updated_value).to.equal(value);
                 });
             });
@@ -312,11 +312,11 @@ function test_update(getDB, createNewObject, test_fields, supported) {
                 var original_element_id = original_first_element[test_fields.obj_array.key_field];
                 var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var replacement_obj = createNewObject();
-                var value = document_database_d_1.getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name);
+                var value = document_database_1.getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name);
                 var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: populated_field.name, value };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0];
-                    var updated_value = document_database_d_1.getValue(updated_first_element, populated_field.name);
+                    var updated_value = document_database_1.getValue(updated_first_element, populated_field.name);
                     expect(updated_value).to.equal(value);
                 });
             });
@@ -331,12 +331,12 @@ function test_update(getDB, createNewObject, test_fields, supported) {
                 var original_element_id = original_first_element[test_fields.obj_array.key_field];
                 var path = `${test_fields.obj_array.name}.${test_fields.obj_array.key_field}`;
                 var replacement_obj = createNewObject();
-                var value = document_database_d_1.getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name);
+                var value = document_database_1.getValue(replacement_obj[test_fields.obj_array.name][0], populated_field.name);
                 var UPDATE_CMD = { cmd, field: test_fields.obj_array.name, key_field: test_fields.obj_array.key_field, element_id: original_element_id, subfield: populated_field.name };
                 return test_update(obj, UPDATE_CMD).then((objs) => {
                     var updated_first_element = objs.updated_obj[test_fields.obj_array.name][0];
                     expect(updated_first_element).to.exist;
-                    var updated_value = document_database_d_1.getValue(updated_first_element, populated_field.name);
+                    var updated_value = document_database_1.getValue(updated_first_element, populated_field.name);
                     expect(updated_value).to.not.exist;
                 });
             });
